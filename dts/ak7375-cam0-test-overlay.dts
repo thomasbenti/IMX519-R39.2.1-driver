@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0
+// Experimental AK7375 autofocus controller overlay
+// Do not install until power management is configured.
+
+/dts-v1/;
+/plugin/;
+
+/ {
+    fragment@0 {
+        target-path = "/bus@0/cam_i2cmux/i2c@0";
+
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            // Arducam B0371 autofocus actuator
+            ak7375_cam0: camera-lens@c {
+                compatible = "asahi-kasei,ak7375";
+                reg = <0x0c>;
+                status = "okay";
+            };
+        };
+    };
+};

@@ -1,0 +1,30 @@
+# NVIDIA downloaded source files
+nvidia-source/
+public_sources.tbz2
+*.tbz2
+
+# Kernel compilation artifacts
+*.o
+*.ko
+*.mod
+*.mod.c
+*.cmd
+*.symvers
+modules.order
+.tmp_versions/
+
+# Generated device trees and build files
+*.dtb
+*.dtbo
+build/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Camera recordings
+*.raw
+
+# Editor and system files
+.DS_Store

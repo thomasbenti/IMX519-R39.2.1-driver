@@ -1,0 +1,34 @@
+/dts-v1/;
+/plugin/;
+/ {
+    overlay-name = "Arducam IMX519 B0371 CAM0";
+    jetson-header-name = "Jetson 22pin CSI Connector";
+    compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nvidia,p3768-0000+p3767-0003", "nvidia,p3768-0000+p3767-0004", "nvidia,p3768-0000+p3767-0005", "nvidia,p3768-0000+p3767-0000-super", "nvidia,p3768-0000+p3767-0001-super", "nvidia,p3768-0000+p3767-0003-super", "nvidia,p3768-0000+p3767-0004-super", "nvidia,p3768-0000+p3767-0005-super";
+    fragment@0 {
+        target-path = "/bus@0";
+        __overlay__ {
+            cam_i2cmux {
+                status = "okay";
+                compatible = "i2c-mux-gpio";
+                #address-cells = <1>;
+                #size-cells = <0>;
+                mux-gpios = <&gpio_aon 19 0>;
+                i2c-parent = <&cam_i2c>;
+                i2c@0 {
+                    status = "okay";
+                    reg = <0>;
+                    #address-cells = <1>;
+                    #size-cells = <0>;
+                    imx519_cam0: imx519@1a {
+                        compatible = "sony,imx519";
+                        reg = <0x1a>;
+                        reset-gpios = <&gpio 62 0>;
+                        clocks = <&bpmp 36>;
+                        clock-names = "mclk";
+                        status = "disabled";
+                    };
+                };
+            };
+        };
+    };
+};

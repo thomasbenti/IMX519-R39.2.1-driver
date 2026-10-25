@@ -1,0 +1,235 @@
+
+// SPDX-License-Identifier: GPL-2.0
+// Arducam B0371 IMX519 CAM0 Device Tree Overlay
+// Experimental V4L2 / NVCSI / VI configuration for Jetson Orin Nano.
+// Do not install until the mode properties and driver are validated.
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/tegra234-gpio.h>
+#include <dt-bindings/tegra234-p3767-0000-common.h>
+
+// Camera I2C multiplexer GPIO
+#define CAM_I2C_MUX 19
+#define CAM0_PWDN 62
+
+/ {
+    overlay-name = "Arducam IMX519 B0371 CAM0 V4L2";
+    jetson-header-name = "Jetson 22pin CSI Connector";
+    compatible = JETSON_COMPATIBLE_P3768;
+
+    fragment@0 {
+        // Target the existing Jetson bus
+        target-path = "/bus@0";
+
+        __overlay__ {
+            cam_i2cmux {
+                status = "okay";
+                compatible = "i2c-mux-gpio";
+
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                // Select camera I2C multiplexer
+                mux-gpios = <&gpio_aon CAM_I2C_MUX GPIO_ACTIVE_HIGH>;
+
+                // Parent camera I2C controller
+                i2c-parent = <&cam_i2c>;
+
+                // CAM0 multiplexer channel
+                i2c@0 {
+                    status = "okay";
+                    reg = <0>;
+
+                    #address-cells = <1>;
+                    #size-cells = <0>;
+
+                    // Arducam B0371 Sony IMX519
+                    imx519_cam0: imx519@1a {
+                        compatible = "sony,imx519";
+                        reg = <0x1a>;
+
+                        // Enable this experimental IMX519 sensor node
+                        status = "okay";
+
+                        // NVIDIA camera framework properties
+                        devnode = "video0";
+                        sensor_model = "imx519";
+                        use_sensor_mode_id = "true";
+
+                        // CAM0 GPIO PH.06 controls the camera board's POWER_EN signal
+                        reset-gpios = <&gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
+
+                        // Camera external clock: EXTPERIPH1 (ID 36)
+                        clocks = <&bpmp 36>;
+                        clock-names = "mclk";
+
+                        // IMX519 1920x1080 RAW10 operating mode
+                        mode0 {
+                            // Sensor clock
+                            mclk_khz = "24000";
+
+                            // MIPI CSI-2 configuration
+                            num_lanes = "2";
+                            tegra_sinterface = "serial_b";
+                            lane_polarity = "6";
+                            phy_mode = "DPHY";
+                            discontinuous_clk = "yes";
+                            dpcm_enable = "false";
+                            cil_settletime = "0";
+
+                            // Image dimensions
+                            active_w = "1920";
+                            active_h = "1080";
+
+                            // Image data format
+                            mode_type = "bayer";
+                            pixel_phase = "rggb";
+                            csi_pixel_bit_depth = "10";
+
+                            // Additional camera mode properties
+                            readout_orientation = "0";
+                            inherent_gain = "1";
+
+                            // Analog gain control
+                            gain_factor = "16";
+                            min_gain_val = "16";
+                            max_gain_val = "256";
+                            step_gain_val = "1";
+                            default_gain = "16";
+
+                            // HDR is not supported in our initial mode
+                            min_hdr_ratio = "1";
+                            max_hdr_ratio = "1";
+
+                            // Sensor timing from the IMX519 reference driver
+                            line_length = "9689";
+
+                            // CSI output rate: 987 Mbps per lane, 2 lanes, RAW10
+                            pix_clk_hz = "197400000";
+                            
+                            // Frame rate expressed using a fixed-point scaling factor
+                            framerate_factor = "1000000";
+                            min_framerate = "60000000";
+                            max_framerate = "60000000";
+                            step_framerate = "1";
+                            default_framerate = "60000000";
+
+                            // Exposure time expressed in microseconds
+                            exposure_factor = "1000000";
+                            min_exp_time = "15";
+                            max_exp_time = "16214";
+                            step_exp_time = "1";
+                            default_exp_time = "14124";
+
+                            // Raspberry Pi IMX519 reference defines one embedded metadata line
+                            embedded_metadata_height = "2";
+                        };
+
+                        // Connect the IMX519 sensor to NVIDIA's CSI receiver
+                        ports {
+                            #address-cells = <1>;
+                            #size-cells = <0>;
+
+                            port@0 {
+                                reg = <0>;
+
+                                imx519_out0: endpoint {
+                                    port-index = <1>;
+                                    bus-width = <2>;
+                                    remote-endpoint = <&imx519_csi_in0>;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+
+    // NVIDIA Video Input (VI) and camera module registration
+    fragment@1 {
+        target-path = "/";
+
+        __overlay__ {
+            tegra-capture-vi {
+                num-channels = <1>;
+
+                ports {
+                    #address-cells = <1>;
+                    #size-cells = <0>;
+
+                    port@0 {
+                        reg = <0>;
+
+                        imx519_vi_in0: endpoint {
+                            port-index = <1>;
+                            bus-width = <2>;
+                            remote-endpoint = <&imx519_csi_out0>;
+                        };
+                    };
+                };
+            };
+
+            // NVIDIA camera module registration
+            tegra-camera-platform {
+                compatible = "nvidia, tegra-camera-platform";
+
+                modules {
+                    module0 {
+                        badge = "imx519_front_B0371";
+                        position = "front";
+                        orientation = "1";
+
+                        drivernode0 {
+                            pcl_id = "v4l2_sensor";
+
+                            sysfs-device-tree =
+                                "/sys/firmware/devicetree/base/bus@0/cam_i2cmux/i2c@0/imx519@1a";
+                        };
+                    };
+                };
+            };
+        };
+    };
+
+    // NVIDIA CSI receiver configuration
+    fragment@2 {
+        target-path = "/bus@0/host1x@13e00000/nvcsi@15a00000";
+
+        __overlay__ {
+            num-channels = <1>;
+
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            channel@0 {
+                reg = <0>;
+
+                ports {
+                    #address-cells = <1>;
+                    #size-cells = <0>;
+
+                    port@0 {
+                        reg = <0>;
+
+                        imx519_csi_in0: endpoint {
+                            port-index = <1>;
+                            bus-width = <2>;
+                            remote-endpoint = <&imx519_out0>;
+                        };
+                    };
+
+                    port@1 {
+                        reg = <1>;
+
+                        imx519_csi_out0: endpoint {
+                            remote-endpoint = <&imx519_vi_in0>;
+                        };
+                    };
+                };
+            };
+        };
+    };
+};

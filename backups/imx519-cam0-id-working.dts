@@ -1,0 +1,65 @@
+
+// SPDX-License-Identifier: GPL-2.0
+// Arducam B0371 IMX519 CAM0 Device Tree Overlay
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/tegra234-gpio.h>
+#include <dt-bindings/tegra234-p3767-0000-common.h>
+
+// Camera I2C multiplexer GPIO
+#define CAM_I2C_MUX 19
+#define CAM0_PWDN 62
+
+/ {
+    overlay-name = "Arducam IMX519 B0371 CAM0";
+    jetson-header-name = "Jetson 22pin CSI Connector";
+    compatible = JETSON_COMPATIBLE_P3768;
+
+    fragment@0 {
+        // Target the existing Jetson bus
+        target-path = "/bus@0";
+
+        __overlay__ {
+            cam_i2cmux {
+                status = "okay";
+                compatible = "i2c-mux-gpio";
+
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                // Select camera I2C multiplexer
+                mux-gpios = <&gpio_aon CAM_I2C_MUX GPIO_ACTIVE_HIGH>;
+
+                // Parent camera I2C controller
+                i2c-parent = <&cam_i2c>;
+
+                // CAM0 multiplexer channel
+                i2c@0 {
+                    status = "okay";
+                    reg = <0>;
+
+                    #address-cells = <1>;
+                    #size-cells = <0>;
+
+                    // Arducam B0371 Sony IMX519
+                    imx519_cam0: imx519@1a {
+                        compatible = "sony,imx519";
+                        reg = <0x1a>;
+
+                        // Canidate CAM0 reset GPIO: PH.06
+                        reset-gpios = <&gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
+
+                        // Camera external clock: EXTPERIPH1 (ID 36)
+                        clocks = <&bpmp 36>;
+                        clock-names = "mclk";
+
+                        // Keep disabled until hardware is configured
+                        status = "okay";
+                    };
+                };
+            };
+        };
+    };
+};
